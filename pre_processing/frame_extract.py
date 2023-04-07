@@ -1,32 +1,19 @@
-# Mitchell Klingler
-# Shane Davis
-# CAP6135
-# Implementation of Detecting Deepfakes with Metric Learning
-
-#### TODO #### 
-
-# Implement a way to not extract the frames from List_of_testing_videos.txt
-
-#### TODO ####
-
 import os
 import cv2
 import glob
 import argparse
+from tqdm import tqdm
+
+# Takes in a directory of videos and outputs the frames of each video into individual indexed directories
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("--training_dir", type=str)
-parser.add_argument("--testing_set", type=str)
+parser.add_argument("--input_dir", type=str)
 parser.add_argument("--output_dir", type=str)
-
 args = parser.parse_args()
+videos_path = glob.glob(os.path.join(args.input_dir, "*.mp4"))
 
-folder = args.training_dir
-
-videos_path = glob.glob(os.path.join(folder, "*.mp4"))
-
-for video_index, video_path in enumerate(videos_path):
+for video_index, video_path in tqdm(enumerate(videos_path), total=len(videos_path)):
     capture = cv2.VideoCapture(video_path)
     vid = video_path.split("/")[-1]
     vid = vid.split(".")[0]
@@ -42,10 +29,7 @@ for video_index, video_path in enumerate(videos_path):
         if not ret:
             break
 
-        filename = f"{video_frame_folder}/image_{frameId + 1}.jpg"
+        filename = f"{video_frame_folder}/image_{int(frameId + 1)}.jpg"
         cv2.imwrite(filename, frame)
 
     capture.release()
-
-    if video_index % 100 == 0:
-        print(f"Number of videos done: {video_index + 1}")

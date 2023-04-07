@@ -1,0 +1,7 @@
+tensorflow<2.11
+opencv-python
+torch
+scikit-image
+imageio
+facenet-pytorch
+tqdm
