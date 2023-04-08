@@ -27,12 +27,13 @@ mtcnn = MTCNN(
 )
 
 for video_folder in tqdm(listdir(args.input_dir)):
-    frame_files = glob.glob(join(args.input_dir, video_folder, "*.jpg"))
     video_output_dir = join(args.output_dir, video_folder)
-
     if not exists(video_output_dir):
         makedirs(video_output_dir)
+    else:
+        continue
 
+    frame_files = glob.glob(join(args.input_dir, video_folder, "*.jpg"))
     for frame_file in frame_files:
         frame = cv2.imread(frame_file)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -42,4 +43,4 @@ for video_folder in tqdm(listdir(args.input_dir)):
             imsave(join(video_output_dir, basename(frame_file)), face.permute(1, 2, 0).int().numpy(),
                    check_contrast=False)
         except AttributeError:
-            print("Image skipping")
+            print(f"Image skipping on {repr(frame_file)} for video folder {repr(video_output_dir)}")
