@@ -1,7 +1,9 @@
 tensorflow<2.11
-opencv-python
+opencv-python==4.5.5.62
 torch
 scikit-image
 imageio
 facenet-pytorch
 tqdm
+matplotlib
+scikit-learn
