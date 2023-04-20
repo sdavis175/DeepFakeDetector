@@ -63,8 +63,8 @@ def create_dataset(real_dir: str, synthetic_dir: str,
 if __name__ == '__main__':
     # Create the training dataset
     tf.config.experimental.set_memory_growth(tf.config.list_physical_devices('GPU')[0], True)
-    dataset = create_dataset(real_dir="../datasets/Celeb-DF-v2/face_frames_split/training/real/",
-                             synthetic_dir="../datasets/Celeb-DF-v2/face_frames_split/training/synthetic/",
-                             ).batch(32).prefetch(tf.data.AUTOTUNE)
+    d = create_dataset(real_dir="../datasets/Celeb-DF-v2/face_frames_split/testing/real/",
+                       synthetic_dir="../datasets/Celeb-DF-v2/face_frames_split/testing/synthetic/",
+                       ).batch(32).prefetch(tf.data.AUTOTUNE)
     print("Finished loading")
-    print([x for x in dataset.take(1)])
+    print([x for x in d.take(1)])

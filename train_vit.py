@@ -3,7 +3,7 @@ from pre_processing.videos_to_tf_dataset import create_dataset
 from keras.applications.xception import Xception
 from keras.layers.pooling import GlobalAveragePooling2D
 from keras.layers.core import Dropout, Dense
-from keras.layers import Resizing, Rescaling, RandomFlip, RandomZoom, RandomRotation, RandomTranslation
+from keras.layers import RandomFlip, RandomZoom, RandomRotation, RandomTranslation, Normalization
 from keras.models import Model, Sequential
 from keras.optimizers import Nadam
 from keras.preprocessing.image import ImageDataGenerator
@@ -12,6 +12,7 @@ from keras import backend as K
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 from keras.callbacks import CSVLogger
 import tensorflow as tf
+from transformers import TFViTForImageClassification, ViTImageProcessor
 
 import numpy as np
 import time
@@ -29,13 +30,14 @@ def main():
     parser.add_argument("--image_size", type=int, default=224)
     parser.add_argument("--frames_per_video", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
-    parser.add_argument("--weights_save_name", type=str, default="xception")
+    parser.add_argument("--weights_save_name", type=str, default="vit")
     parser.add_argument("--real_dir", type=str, required=True)
     parser.add_argument("--synthetic_dir", type=str, required=True)
     args = parser.parse_args()
 
     train_data_augmentation_model = Sequential(
         [
+            Normalization(mean=[0.5, 0.5, 0.5], variance=[0.5, 0.5, 0.5]),
             RandomRotation(factor=1 / 12, fill_mode="nearest"),
             RandomZoom(height_factor=0.15, width_factor=0.15, fill_mode="nearest"),
             RandomTranslation(height_factor=0.2, width_factor=0.2, fill_mode="nearest"),
@@ -44,8 +46,22 @@ def main():
         name="train_data_augmentation",
     )
 
+    val_data_augmentation_model = Sequential(
+        [
+            Normalization(mean=[0.5, 0.5, 0.5], variance=[0.5, 0.5, 0.5])
+        ],
+        name="val_data_augmentation",
+    )
+
     def train_data_augmentation(image, label):
-        return train_data_augmentation_model(image), label
+        image = train_data_augmentation_model(image)
+        image = tf.transpose(image, perm=[2, 0, 1])  # ViT wants (channels, width, height)
+        return image, label
+
+    def val_data_augmentation(image, label):
+        image = val_data_augmentation_model(image)
+        image = tf.transpose(image, perm=[2, 0, 1])  # ViT wants (channels, width, height)
+        return image, label
 
     # Get training data and apply data augmentation
     dataset = create_dataset(real_dir=args.real_dir,
@@ -56,28 +72,12 @@ def main():
     val_size = int(0.1 * len(dataset))
     train_size = len(dataset) - val_size
     train_dataset = dataset.take(train_size).map(train_data_augmentation)
-    val_dataset = dataset.skip(train_size)
+    val_dataset = dataset.skip(train_size).map(val_data_augmentation)
     print("Dataset Loaded...")
 
-    # Generate Xception model
-    input_size = (args.image_size, args.image_size, 3)  # rgb images
-    model = Xception(weights="imagenet", include_top=False, input_shape=input_size)
-
-    output = model.output
-    output = GlobalAveragePooling2D()(output)
-    output = Dense(512, activation="relu", kernel_initializer="he_uniform")(output)
-    output = Dropout(0.4)(output)
-    output = Dropout(0.5)(output)
-    predictions = Dense(
-        2,
-        activation="softmax",
-        kernel_initializer="he_uniform"
-    )(output)
-    model = Model(inputs=model.input, outputs=predictions)
-
-    for layer in model.layers:
-        layer.trainable = True
-
+    # Generate ViT model
+    model = TFViTForImageClassification.from_pretrained("google/vit-base-patch16-224-in21k",
+                                                        num_labels=2)
     optimizer = Nadam(
         learning_rate=0.002,
         beta_1=0.9,
@@ -136,7 +136,7 @@ def main():
     plt.xlabel("Epoch")
     plt.ylabel("Loss/Accuracy")
     plt.legend(loc="lower left")
-    plt.savefig("plots/train_xception.png")
+    plt.savefig("plots/training_plot.png")
 
     end = time.time()
     dur = end - start
