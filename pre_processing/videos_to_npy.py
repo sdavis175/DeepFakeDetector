@@ -13,6 +13,8 @@ REAL_LABEL = 1
 
 # Takes the input real/synthetic video directories and takes the first specified amount of video frames and resizes them
 # Saves them into a .npy format along with the associated labels
+# !! DEPRECATED !!
+# Use videos_to_tf_dataset.py instead
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
