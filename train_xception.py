@@ -34,28 +34,28 @@ def main():
     parser.add_argument("--synthetic_dir", type=str, required=True)
     args = parser.parse_args()
 
-    def data_augmentation(image, label):
-        data_augmentation_model = Sequential(
-            [
-                RandomRotation(factor=1/12, fill_mode="nearest"),
-                RandomZoom(height_factor=0.15, width_factor=0.15, fill_mode="nearest"),
-                RandomTranslation(height_factor=0.2, width_factor=0.2, fill_mode="nearest"),
-                RandomFlip("horizontal"),
-            ],
-            name="data_augmentation",
-        )
-        return data_augmentation_model(image), label
+    train_data_augmentation_model = Sequential(
+        [
+            RandomRotation(factor=1 / 12, fill_mode="nearest"),
+            RandomZoom(height_factor=0.15, width_factor=0.15, fill_mode="nearest"),
+            RandomTranslation(height_factor=0.2, width_factor=0.2, fill_mode="nearest"),
+            RandomFlip("horizontal"),
+        ],
+        name="train_data_augmentation",
+    )
+
+    def train_data_augmentation(image, label):
+        return train_data_augmentation_model(image), label
 
     # Get training data and apply data augmentation
     dataset = create_dataset(real_dir=args.real_dir,
                              synthetic_dir=args.synthetic_dir,
                              frames_per_video=args.frames_per_video,
                              img_size=args.image_size)
-    dataset = dataset.map(data_augmentation)
 
     val_size = int(0.1 * len(dataset))
     train_size = len(dataset) - val_size
-    train_dataset = dataset.take(train_size)
+    train_dataset = dataset.take(train_size).map(train_data_augmentation)
     val_dataset = dataset.skip(train_size)
     print("Dataset Loaded...")
 
