@@ -37,7 +37,7 @@ parser.add_argument(
     "--img_size",
     type=int,
     help="Resize face image",
-    default=160
+    default=224
 )
 parser.add_argument(
     "--frames_per_video",
@@ -75,5 +75,5 @@ for video_dir in tqdm(all_videos):
 print("Saving data and labels")
 train_data = np.array(train_data)
 train_label = np_utils.to_categorical(np.array(train_label))
-np.save(join(args.output_dir, f"data_{args.frames_per_video}.npy"), train_data)
-np.save(join(args.output_dir, f"label_{args.frames_per_video}.npy"), train_label)
+np.save(join(args.output_dir, f"data_{args.frames_per_video}_{args.img_size}x{args.img_size}.npy"), train_data)
+np.save(join(args.output_dir, f"label_{args.frames_per_video}_{args.img_size}x{args.img_size}.npy"), train_label)

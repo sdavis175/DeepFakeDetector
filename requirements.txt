@@ -7,3 +7,5 @@ facenet-pytorch
 tqdm
 matplotlib
 scikit-learn
+numpy
+transformers
