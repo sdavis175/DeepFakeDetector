@@ -3,7 +3,8 @@ from pre_processing.videos_to_tf_dataset import create_dataset
 from keras.applications.xception import Xception
 from keras.layers.pooling import GlobalAveragePooling2D
 from keras.layers.core import Dropout, Dense
-from keras.models import Model
+from keras.layers import Resizing, Rescaling, RandomFlip, RandomZoom, RandomRotation, RandomTranslation
+from keras.models import Model, Sequential
 from keras.optimizers import Nadam
 from keras.preprocessing.image import ImageDataGenerator
 from sklearn.model_selection import train_test_split
@@ -26,23 +27,35 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--image_size", type=int, default=224)
+    parser.add_argument("--frames_per_video", type=int, default=25)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--weights_save_name", type=str, default="xception")
-    parser.add_argument("--dataset_path", type=str, required=True)
-
+    parser.add_argument("--real_dir", type=str, required=True)
+    parser.add_argument("--synthetic_dir", type=str, required=True)
     args = parser.parse_args()
 
-    # Get training data
-    shuffle_buffer_size = 10000
-    dataset = create_dataset(dataset_path=args.dataset_path,
-                             is_training=True,
-                             num_frames=25,
-                             img_size=args.image_size,
-                             shuffle_buffer_size=shuffle_buffer_size)
+    def data_augmentation(image, label):
+        data_augmentation_model = Sequential(
+            [
+                RandomRotation(factor=1/12, fill_mode="nearest"),
+                RandomZoom(height_factor=0.15, width_factor=0.15, fill_mode="nearest"),
+                RandomTranslation(height_factor=0.2, width_factor=0.2, fill_mode="nearest"),
+                RandomFlip("horizontal"),
+            ],
+            name="data_augmentation",
+        )
+        return data_augmentation_model(image), label
 
-    val_size = int(0.2 * len(dataset))
+    # Get training data and apply data augmentation
+    dataset = create_dataset(real_dir=args.real_dir,
+                             synthetic_dir=args.synthetic_dir,
+                             frames_per_video=args.frames_per_video,
+                             img_size=args.image_size)
+    dataset = dataset.map(data_augmentation)
+
+    val_size = int(0.1 * len(dataset))
     train_size = len(dataset) - val_size
-    train_dataset = dataset.take(train_size).shuffle(buffer_size=shuffle_buffer_size)
+    train_dataset = dataset.take(train_size)
     val_dataset = dataset.skip(train_size)
     print("Dataset Loaded...")
 
@@ -56,8 +69,8 @@ def main():
     output = Dropout(0.4)(output)
     output = Dropout(0.5)(output)
     predictions = Dense(
-        1,
-        activation="sigmoid",
+        2,
+        activation="softmax",
         kernel_initializer="he_uniform"
     )(output)
     model = Model(inputs=model.input, outputs=predictions)
@@ -73,7 +86,7 @@ def main():
         schedule_decay=0.004
     )
     model.compile(
-        loss="binary_crossentropy",
+        loss="categorical_crossentropy",
         optimizer=optimizer,
         metrics=["accuracy"]
     )
