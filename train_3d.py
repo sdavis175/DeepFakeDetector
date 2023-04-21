@@ -2,13 +2,9 @@ from keras.models import Model, Sequential
 from keras.optimizers import SGD
 from keras.layers.core import Dense, Dropout, Flatten
 from keras.layers.convolutional import Conv3D, MaxPooling3D, ZeroPadding3D
-from keras.layers import Input, Activation
+from keras.layers import Input
 from keras.layers import RandomFlip, RandomZoom, RandomRotation, RandomTranslation
-import tensorflow as tf
 from keras.utils import np_utils
-from pathlib import Path
-from keras.regularizers import l2
-
 
 import os
 import time
@@ -18,8 +14,6 @@ from random import shuffle
 import random
 import cv2
 import numpy as np
-
-from DeepFakeDetector.pre_processing.videos_to_tf_dataset import create_dataset
 
 
 def c3d_model(batch_size):
@@ -122,45 +116,6 @@ def c3d_model(batch_size):
     model = Model(inputs=main_input, outputs=predictions)
     return model
 
-def plot_history(history, result_dir):
-    plt.plot(history.history["accuracy"], marker=".")
-    plt.plot(history.history["val_accuracy"], marker=".")
-    plt.title("model accuracy")
-    plt.xlabel("epoch")
-    plt.ylabel("accuracy")
-    plt.grid()
-    plt.legend(["accuracy", "val_accuracy"], loc="lower right")
-    plt.savefig(os.path.join(result_dir, "model_accuracy.png"))
-    plt.close()
-
-    plt.plot(history.history["loss"], marker=".")
-    plt.plot(history.history["val_loss"], marker=".")
-    plt.title("model loss")
-    plt.xlabel("epoch")
-    plt.ylabel("loss")
-    plt.grid()
-    plt.legend(["loss", "val_loss"], loc="upper right")
-    plt.savefig(os.path.join(result_dir, "model_loss.png"))
-    plt.close()
-
-
-def save_history(history, result_dir):
-    loss = history.history["loss"]
-    acc = history.history["acc"]
-    val_loss = history.history["val_loss"]
-    val_acc = history.history["val_acc"]
-    nb_epoch = len(acc)
-
-    with open(os.path.join(result_dir, "result.txt"), "w") as fp:
-        fp.write("epoch\tloss\tacc\tval_loss\tval_acc\n")
-        for i in range(nb_epoch):
-            fp.write(
-                "{}\t{}\t{}\t{}\t{}\n".format(
-                    i, loss[i], acc[i], val_loss[i], val_acc[i]
-                )
-            )
-        fp.close()
-
 def process_batch(video_paths, batch_size, train=True):
     num = len(video_paths)
     batch = np.zeros((num, batch_size, 112, 112, 3), dtype="int")
@@ -211,35 +166,34 @@ def preprocess(inputs):
 
 def generator_train_batch(train_vid_list, batch_size, num_classes):
     num = len(train_vid_list)
-    while True:
-        for i in range(int(num / batch_size)):
-            a = i * batch_size
-            b = (i + 1) * batch_size
-            x_train, x_labels = process_batch(
-                train_vid_list[a:b],
-                batch_size,
-                train=True
-            )
-            x = preprocess(x_train)
-            y = np_utils.to_categorical(np.array(x_labels), num_classes)
-            yield x, y
+
+    for i in range(int(num / batch_size)):
+        a = i * batch_size
+        b = (i + 1) * batch_size
+        x_train, x_labels = process_batch(
+            train_vid_list[a:b],
+            batch_size,
+            train=True
+        )
+        x = preprocess(x_train)
+        y = np_utils.to_categorical(np.array(x_labels), num_classes)
+        yield x, y
 
 
 def generator_val_batch(val_vid_list, batch_size, num_classes):
     num = len(val_vid_list)
-    while True:
-        for i in range(int(num / batch_size)):
-            a = i * batch_size
-            b = (i + 1) * batch_size
-            y_test, y_labels = process_batch(
-                val_vid_list[a:b],
-                batch_size,
-                train=False
-            )
-            x = preprocess(y_test)
-            y = np_utils.to_categorical(np.array(y_labels), num_classes)
-            yield x, y
 
+    for i in range(int(num / batch_size)):
+        a = i * batch_size
+        b = (i + 1) * batch_size
+        y_test, y_labels = process_batch(
+            val_vid_list[a:b],
+            batch_size,
+            train=False
+        )
+        x = preprocess(y_test)
+        y = np_utils.to_categorical(np.array(y_labels), num_classes)
+        yield x, y
 
 def main():
     start = time.time()
@@ -257,22 +211,29 @@ def main():
     num_classes = 2
 
     print("creating dataset")
-    train_path = ["../face_frames_split/face_frames_split/training/synthesis", "../face_frames_split/face_frames_split/training/real"]
+    train_path = [args.synthetic_dir, args.real_dir]
 
     list_1 = [os.path.join(train_path[0], x) for x in os.listdir(train_path[0])]
     list_0 = [os.path.join(train_path[1], x) for x in os.listdir(train_path[1])]
 
+    train_data_augmentation_model = Sequential(
+        [
+            RandomRotation(factor=1 / 12, fill_mode="nearest"),
+            RandomZoom(height_factor=0.15, width_factor=0.15, fill_mode="nearest"),
+            RandomTranslation(height_factor=0.2, width_factor=0.2, fill_mode="nearest"),
+            RandomFlip("horizontal"),
+        ],
+        name="train_data_augmentation",
+    )
+
+
     for i in range(1):
         vid_list = list_1 + list_0[i * (len(list_1)): (i + 1) * (len(list_1))]
-        print(vid_list)
-        print(len(vid_list))
         shuffle(vid_list)
 
         # Distrbution of training data as 80/20 according to FF++ paper
         train_vid_list = vid_list[: int(0.8 * len(vid_list))]
         val_vid_list = vid_list[int(0.8 * len(vid_list)):]
-
-    print("Dataset Loaded...")
 
     model = c3d_model(batch_size=args.batch_size)
 
@@ -283,7 +244,8 @@ def main():
         optimizer=sgd,
         metrics=["accuracy"]
     )
-
+    train_vid_list = train_vid_list * args.epochs
+    val_vid_list = val_vid_list * args.epochs
     # Model fitting
     history = model.fit(
         generator_train_batch(train_vid_list, args.batch_size, num_classes),
@@ -292,15 +254,24 @@ def main():
             args.batch_size,
             num_classes
         ),
+        validation_steps=len(val_vid_list) // args.epochs,
+        steps_per_epoch=len(train_vid_list) // args.epochs,
         epochs=args.epochs,
         verbose=1,
     )
 
-    # Make results directory
-    if not os.path.exists("results/"):
-        os.mkdir("results/")
-    plot_history(history, "results/")
-    save_history(history, "results/")
+    print(history.history)
+    plt.style.use("ggplot")
+    plt.figure()
+    plt.plot(history.history["loss"], label="train_loss")
+    plt.plot(history.history["val_loss"], label="val_loss")
+    plt.plot(history.history["accuracy"], label="train_acc")
+    plt.plot(history.history["val_accuracy"], label="val_acc")
+    plt.title("Training Loss and Accuracy")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss/Accuracy")
+    plt.legend(loc="lower left")
+    plt.savefig("plots/train_c3d.png")
     model.save_weights("results/" + args.weights_save_name + ".hdf5")
 
     end = time.time()
@@ -314,7 +285,6 @@ def main():
     else:
         dur = dur / (60 * 60)
         print("Execution Time:", dur, "hours")
-
 
 
 if __name__ == "__main__":
