@@ -1,19 +1,14 @@
 from pre_processing.videos_to_tf_dataset import create_dataset
-
 from keras.applications.xception import Xception
 from keras.layers.pooling import GlobalAveragePooling2D
 from keras.layers.core import Dropout, Dense
-from keras.layers import Resizing, Rescaling, RandomFlip, RandomZoom, RandomRotation, RandomTranslation
+from keras.layers import RandomFlip, RandomZoom, RandomRotation, RandomTranslation
 from keras.models import Model, Sequential
 from keras.optimizers import Nadam
-from keras.preprocessing.image import ImageDataGenerator
-from sklearn.model_selection import train_test_split
-from keras import backend as K
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 from keras.callbacks import CSVLogger
 import tensorflow as tf
 
-import numpy as np
 import time
 import argparse
 from os.path import exists
