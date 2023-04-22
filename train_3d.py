@@ -3,7 +3,6 @@ from keras.optimizers import SGD
 from keras.layers.core import Dense, Dropout, Flatten
 from keras.layers.convolutional import Conv3D, MaxPooling3D, ZeroPadding3D
 from keras.layers import Input
-from keras.layers import RandomFlip, RandomZoom, RandomRotation, RandomTranslation
 from keras.utils import np_utils
 
 import os
@@ -167,33 +166,35 @@ def preprocess(inputs):
 def generator_train_batch(train_vid_list, batch_size, num_classes):
     num = len(train_vid_list)
 
-    for i in range(int(num / batch_size)):
-        a = i * batch_size
-        b = (i + 1) * batch_size
-        x_train, x_labels = process_batch(
-            train_vid_list[a:b],
-            batch_size,
-            train=True
-        )
-        x = preprocess(x_train)
-        y = np_utils.to_categorical(np.array(x_labels), num_classes)
-        yield x, y
+    while(True):
+        for i in range(int(num / batch_size)):
+            a = i * batch_size
+            b = (i + 1) * batch_size
+            x_train, x_labels = process_batch(
+                train_vid_list[a:b],
+                batch_size,
+                train=True
+            )
+            x = preprocess(x_train)
+            y = np_utils.to_categorical(np.array(x_labels), num_classes)
+            yield x, y
 
 
 def generator_val_batch(val_vid_list, batch_size, num_classes):
     num = len(val_vid_list)
 
-    for i in range(int(num / batch_size)):
-        a = i * batch_size
-        b = (i + 1) * batch_size
-        y_test, y_labels = process_batch(
-            val_vid_list[a:b],
-            batch_size,
-            train=False
-        )
-        x = preprocess(y_test)
-        y = np_utils.to_categorical(np.array(y_labels), num_classes)
-        yield x, y
+    while(True):
+        for i in range(int(num / batch_size)):
+            a = i * batch_size
+            b = (i + 1) * batch_size
+            y_test, y_labels = process_batch(
+                val_vid_list[a:b],
+                batch_size,
+                train=False
+            )
+            x = preprocess(y_test)
+            y = np_utils.to_categorical(np.array(y_labels), num_classes)
+            yield x, y
 
 def main():
     start = time.time()
@@ -216,17 +217,6 @@ def main():
     list_1 = [os.path.join(train_path[0], x) for x in os.listdir(train_path[0])]
     list_0 = [os.path.join(train_path[1], x) for x in os.listdir(train_path[1])]
 
-    train_data_augmentation_model = Sequential(
-        [
-            RandomRotation(factor=1 / 12, fill_mode="nearest"),
-            RandomZoom(height_factor=0.15, width_factor=0.15, fill_mode="nearest"),
-            RandomTranslation(height_factor=0.2, width_factor=0.2, fill_mode="nearest"),
-            RandomFlip("horizontal"),
-        ],
-        name="train_data_augmentation",
-    )
-
-
     for i in range(1):
         vid_list = list_1 + list_0[i * (len(list_1)): (i + 1) * (len(list_1))]
         shuffle(vid_list)
@@ -238,7 +228,7 @@ def main():
     model = c3d_model(batch_size=args.batch_size)
 
     lr = 0.005
-    sgd = SGD(lr=lr, momentum=0.9, nesterov=True, clipnorm=1)
+    sgd = SGD(learning_rate=lr, momentum=0.9, nesterov=True, clipnorm=1)
     model.compile(
         loss="binary_crossentropy",
         optimizer=sgd,
@@ -272,7 +262,7 @@ def main():
     plt.ylabel("Loss/Accuracy")
     plt.legend(loc="lower left")
     plt.savefig("plots/train_c3d.png")
-    model.save_weights("results/" + args.weights_save_name + ".hdf5")
+    model.save_weights("trained_wts/" + args.weights_save_name + ".hdf5")
 
     end = time.time()
     dur = end - start
