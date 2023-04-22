@@ -227,7 +227,7 @@ def main():
         metrics=["accuracy"]
     )
 
-    model.load_weights("results/" + args.weights_save_name + ".hdf5")
+    model.load_weights("trained_wts/" + args.weights_save_name + ".hdf5")
 
     print(len(videos))
 
