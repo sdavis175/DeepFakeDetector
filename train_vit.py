@@ -11,8 +11,9 @@ from sklearn.model_selection import train_test_split
 from keras import backend as K
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 from keras.callbacks import CSVLogger
+from keras.metrics import Precision, Recall
 import tensorflow as tf
-from transformers import TFViTForImageClassification, ViTImageProcessor
+from transformers import TFViTForImageClassification, ViTImageProcessor, TFDeiTForImageClassification
 
 import numpy as np
 import time
@@ -76,19 +77,22 @@ def main():
     print("Dataset Loaded...")
 
     # Generate ViT model
-    model = TFViTForImageClassification.from_pretrained("google/vit-base-patch16-224-in21k",
-                                                        num_labels=2)
+    model = TFViTForImageClassification.from_pretrained("google/vit-base-patch16-224",
+                                                        num_labels=2,
+                                                        ignore_mismatched_sizes=True)
+    # model.layers[0].trainable = False
+
     optimizer = Nadam(
-        learning_rate=0.002,
+        learning_rate=1e-5,
         beta_1=0.9,
         beta_2=0.999,
-        epsilon=1e-08,
+        epsilon=1e-07,
         schedule_decay=0.004
     )
     model.compile(
         loss="categorical_crossentropy",
         optimizer=optimizer,
-        metrics=["accuracy"]
+        metrics=["accuracy", Precision(), Recall()]
     )
     model.summary()
 
@@ -107,10 +111,13 @@ def main():
         save_best_only=True,
         save_weights_only=True,
     )
-
-    stopping = EarlyStopping(monitor="val_loss", patience=10, verbose=0)
+    stopping = EarlyStopping(
+        monitor="val_loss",
+        patience=10,
+        verbose=0
+    )
     csv_logger = CSVLogger(
-        f"training_logs/{args.weights_save_name}.log",
+        f"training_logs/{args.weights_save_name}.csv",
         separator=",",
         append=True,
     )
@@ -136,7 +143,8 @@ def main():
     plt.xlabel("Epoch")
     plt.ylabel("Loss/Accuracy")
     plt.legend(loc="lower left")
-    plt.savefig("plots/training_plot.png")
+    plt.savefig(f"plots/train_{args.weights_save_name}.png")
+    model.save(f"./models/{args.weights_save_name}")
 
     end = time.time()
     dur = end - start
