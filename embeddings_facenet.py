@@ -29,7 +29,7 @@ for video_dir in tqdm(all_videos, desc="Videos Loaded"):
                                 )[:]
     video_label = 0 if video_dir in synthetic_videos else 1 if video_dir in real_videos \
         else None
-    assert video_label is not None""
+    assert video_label is not None
     for frame_path in video_frames_paths:
         image_paths.append(frame_path)
         labels.append(video_label)
