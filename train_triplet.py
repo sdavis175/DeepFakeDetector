@@ -278,13 +278,15 @@ if __name__ == "__main__":
                                                         test_size=0.1, stratify=train_label,
                                                         random_state=34)
     print(x_train.shape, y_train.shape, x_test.shape, y_test.shape)
+    x_train = tf.squeeze(x_train)
+    x_test = tf.squeeze(x_test)
 
     input_image_shape = (512,)
 
     x_val = x_test[:2000, :]
     y_val = y_test[:2000]
-    x_test = x_test[2000:, :]
-    y_test = y_test[2000:]
+    #x_test = x_test[2000:, :]
+    #y_test = y_test[2000:]
 
     # Network training...
     if train_flag == "True":
@@ -292,18 +294,20 @@ if __name__ == "__main__":
         for layer in base_network.layers:
             if layer.name.endswith('bn'):
                 layer.trainable = False
-        base_network.summary()
+        #base_network.summary()
 
         input_images = Input(shape=input_image_shape, name='input_image')  # input layer for images
         input_labels = Input(shape=(1,), name='input_label')  # input layer for labels
         embeddings = base_network([input_images])  # output of network -> embeddings
+        print(embeddings.shape)
+        print(input_labels.shape)
         labels_plus_embeddings = concatenate([input_labels, embeddings])  # concatenating the labels + embeddings
 
         # Defining a model with inputs (images, labels) and outputs (labels_plus_embeddings)
         model = Model(inputs=[input_images, input_labels],
                       outputs=labels_plus_embeddings)
         # model.summary()
-        plot_model(model, to_file='model.png', show_shapes=True, show_layer_names=True)
+        #plot_model(model, to_file='model.png', show_shapes=True, show_layer_names=True)
 
         # train session
         optimizer = Adam(lr=3e-4)
@@ -328,12 +332,16 @@ if __name__ == "__main__":
         model_tr = load_model("trained_wts/triplets_semi_hard.hdf5",
                               custom_objects={'triplet_loss_adapted_from_tf': triplet_loss_adapted_from_tf})
         print("model loaded")
+        model_tr.compile(run_eagerly=True)
+
+        #tf.config.run_functions_eagerly(True)
 
         # Test the network
         # creating an empty network
         testing_embeddings = create_base_network(input_image_shape,
                                                  embedding_size=embedding_size)
         x_train_before = testing_embeddings.predict(x_train)
+        print(x_test.shape)
         x_test_before = testing_embeddings.predict(x_test)
 
         print("Embeddings before training")
@@ -394,9 +402,9 @@ if __name__ == "__main__":
         acc_dt = accuracy_score(y_test, y_pred)
         print("DT Acc:", acc_dt)
 
-        tsne = TSNE()
-        train_tsne_embeds_before_train = tsne.fit_transform(x_train_before[:512])
-        train_tsne_embeds_after_train = tsne.fit_transform(x_train_after[:512])
+        #tsne = TSNE()
+        #train_tsne_embeds_before_train = tsne.fit_transform(x_train_before[:512])
+        #train_tsne_embeds_after_train = tsne.fit_transform(x_train_after[:512])
 
-        scatter(train_tsne_embeds_before_train, y_train[:512], "Training Data Before TNN")
-        scatter(train_tsne_embeds_after_train, y_train[:512], "Training Data After TNN")
+        #scatter(train_tsne_embeds_before_train, y_train[:512], "Training Data Before TNN")
+        #scatter(train_tsne_embeds_after_train, y_train[:512], "Training Data After TNN")

@@ -1,8 +1,3 @@
-import torch
-
-from pre_processing.videos_to_tf_dataset import create_dataset
-
-import imageio.core.util
 from facenet_pytorch import MTCNN
 from PIL import Image
 import pandas as pd
@@ -10,17 +5,10 @@ import cv2
 import time
 import argparse
 import numpy as np
-from keras.models import Model, Sequential
+from keras.models import Model
 from keras.layers.pooling import GlobalAveragePooling2D
-from keras.layers import RandomFlip, RandomZoom, RandomRotation, RandomTranslation
 from keras.layers.core import Dropout, Dense
-from keras.optimizers import Nadam
 from keras.applications.xception import Xception
-#from keras.applications.resnet50 import ResNet50
-from keras.applications.inception_v3 import InceptionV3
-from keras.applications.inception_resnet_v2 import InceptionResNetV2
-from keras.applications.nasnet import NASNetLarge
-#from keras_efficientnets import EfficientNetB5, EfficientNetB0
 from sklearn.metrics import (
     precision_score,
     recall_score,
